@@ -12,8 +12,12 @@ async def check_health():
     return {"status": "ok"}
 
 @router.get("/books", response_model=List[BookResponse])
-async def get_all_books(sort_by: Optional[str] = None):
-    return await service.get_books(sort_by=sort_by)
+async def get_all_books(
+    sort_by: Optional[str] = None,
+    author: Optional[str] = None,
+    status: Optional[BookStatus] = None,
+):
+    return await service.get_books(sort_by=sort_by, author=author, status=status)
 
 @router.get("/books/{book_id}", response_model=BookResponse)
 async def get_book(book_id: UUID):
