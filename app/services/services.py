@@ -3,19 +3,29 @@ from app.models.models import Book
 from app.schemas.schemas import BookRequest, BookStatus
 from uuid import UUID
 from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class BookService:
-    def __init__(self):
-        self.repo = BookRepository()
+    def __init__(self, db: AsyncSession):
+        self.repo = BookRepository(db)
 
     async def get_books(
         self,
         author: Optional[str] = None,
         status: Optional[BookStatus] = None,
-        sort_by: Optional[str] = None
+        sort_by: Optional[str] = None,
+        limit: int = 10,
+        offset: int = 0
     ) -> List[Book]:
         status_val = status.value if status else None
-        return await self.repo.get_all(author=author, status=status_val, sort_by=sort_by)
+        return await self.repo.get_all(
+            author=author,
+            status=status_val,
+            sort_by=sort_by,
+            limit=limit,
+            offset=offset
+        )
 
     async def get_book(self, book_id: UUID) -> Optional[Book]:
         return await self.repo.get_by_id(book_id)
@@ -31,4 +41,4 @@ class BookService:
         return await self.repo.add(new_book)
 
     async def delete_book(self, book_id: UUID) -> None:
-        await self.repo.delete(book_id)
+        await self.repo.delete(book_id)

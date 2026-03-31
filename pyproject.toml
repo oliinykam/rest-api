@@ -21,3 +21,7 @@ dev = [
 members = [
     "library_api",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "function"

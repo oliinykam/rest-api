@@ -1,36 +1,14 @@
-from dataclasses import dataclass, field
-from uuid import UUID, uuid4
-from typing import Optional, List
+import uuid
+from sqlalchemy import Column, String, Integer, Text
+from sqlalchemy.dialects.postgresql import UUID as pgUUID
+from app.database import Base
 
-@dataclass
-class Book:
-    title: str
-    author: str
-    release_year: int
-    status: str
-    description: Optional[str] = None
-    id: UUID = field(default_factory=uuid4)
+class Book(Base):
+    __tablename__ = "books"
 
-books_db: List[Book] = [
-    Book(
-            title="The Little Prince",
-            author="Antoine de Saint-Exupéry",
-            description="A novel about little prince",
-            status="available",
-            release_year=1943,
-        ),
-    Book(
-            title="The Alchemist",
-            author="Paulo Coelho",
-            description="A novel about jorney boy",
-            status="available",
-            release_year=1988,
-        ),
-    Book(
-            title="The Da Vinci Code",
-            author="Dan Brown",
-            description="A mystery thriller novel",
-            status="issued",
-            release_year=2003,
-        )
-]
+    id = Column(pgUUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=False)
+    release_year = Column(Integer, nullable=False)
+    status = Column(String, nullable=False, default="available")
+    description = Column(Text, nullable=True)
