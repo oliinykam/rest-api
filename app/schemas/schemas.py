@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from enum import Enum
-from typing import Optional
+from typing import Optional, List
 
 class BookStatus(str, Enum):
     AVAILABLE = "available"
@@ -14,6 +14,10 @@ class BookRequest(BaseModel):
     status: BookStatus = BookStatus.AVAILABLE
     release_year: int = Field(..., gt=0)
 
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
 class BookResponse(BaseModel):
     id: UUID
     title: str
@@ -23,3 +27,11 @@ class BookResponse(BaseModel):
     release_year: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class PaginatedBooksResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    next_page: Optional[str] = None
+    prev_page: Optional[str] = None
+    items: List[BookResponse]

@@ -1,21 +1,20 @@
 from app.models.models import Book
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, asc, desc, func
 
 class BookRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
-    
-    async def get_all(
+
+    def _build_query(
         self,
         author: Optional[str] = None,
         status: Optional[str] = None,
         sort_by: Optional[str] = None,
-        limit: int = 10,
-        offset: int = 0
-    ) -> List[Book]:
+        order: str = "asc",
+    ):
         query = select(Book)
 
         if author:
@@ -23,13 +22,42 @@ class BookRepository:
         if status:
             query = query.where(Book.status == status)
 
-        if sort_by == "title":
-            query = query.order_by(Book.title)
-        elif sort_by == "release_year":
-            query = query.order_by(Book.release_year)
-        elif sort_by == "author":
-            query = query.order_by(Book.author)
+        if sort_by:
+            sort_func = desc if order.lower() == "desc" else asc
+            if sort_by == "title":
+                query = query.order_by(sort_func(Book.title))
+            elif sort_by == "release_year":
+                query = query.order_by(sort_func(Book.release_year))
+            elif sort_by == "author":
+                query = query.order_by(sort_func(Book.author))
+            elif sort_by == "id":
+                query = query.order_by(sort_func(Book.id))
 
+        return query
+
+    async def count(
+        self,
+        author: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> int:
+        query = select(func.count()).select_from(Book)
+        if author:
+            query = query.where(Book.author.ilike(f"%{author}%"))
+        if status:
+            query = query.where(Book.status == status)
+        result = await self.db.execute(query)
+        return result.scalar_one()
+
+    async def get_all(
+        self,
+        author: Optional[str] = None,
+        status: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        order: str = "asc",
+        limit: int = 10,
+        offset: int = 0
+    ) -> List[Book]:
+        query = self._build_query(author=author, status=status, sort_by=sort_by, order=order)
         query = query.limit(limit).offset(offset)
         result = await self.db.execute(query)
         return list(result.scalars().all())

@@ -1,8 +1,8 @@
 from app.repository.repository import BookRepository
 from app.models.models import Book
-from app.schemas.schemas import BookRequest, BookStatus
+from app.schemas.schemas import BookRequest, BookStatus, SortOrder
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -15,17 +15,21 @@ class BookService:
         author: Optional[str] = None,
         status: Optional[BookStatus] = None,
         sort_by: Optional[str] = None,
+        order: SortOrder = SortOrder.ASC,
         limit: int = 10,
         offset: int = 0
-    ) -> List[Book]:
+    ) -> Tuple[List[Book], int]:
         status_val = status.value if status else None
-        return await self.repo.get_all(
+        items = await self.repo.get_all(
             author=author,
             status=status_val,
             sort_by=sort_by,
+            order=order.value,
             limit=limit,
             offset=offset
         )
+        total = await self.repo.count(author=author, status=status_val)
+        return items, total
 
     async def get_book(self, book_id: UUID) -> Optional[Book]:
         return await self.repo.get_by_id(book_id)
@@ -41,4 +45,4 @@ class BookService:
         return await self.repo.add(new_book)
 
     async def delete_book(self, book_id: UUID) -> None:
-        await self.repo.delete(book_id)
+        await self.repo.delete(book_id)
