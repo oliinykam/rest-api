@@ -1,20 +1,26 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from main import app
+from fastapi.testclient import TestClient
+from main import app as fastapi_app
 from app.database import get_db, Base
 from app.models.models import Book
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+import app.database
 import uuid
+import os
 
-DATABASE_URL_TEST = "sqlite+aiosqlite:///:memory:"
+DATABASE_URL_TEST = "sqlite+aiosqlite:///./test.db"
 engine_test = create_async_engine(DATABASE_URL_TEST, connect_args={"check_same_thread": False})
 TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine_test, expire_on_commit=False)
+
+# Override engine in database module
+app.database.engine = engine_test
+app.database.AsyncSessionLocal = TestingSessionLocal
 
 async def override_get_db():
     async with TestingSessionLocal() as session:
         yield session
 
-app.dependency_overrides[get_db] = override_get_db
+fastapi_app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(autouse=True)
 async def reset_db():
@@ -36,11 +42,18 @@ async def reset_db():
     yield
 
 @pytest.fixture
-async def async_client():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
-        yield client
+def client():
+    # Testing without `with` context manager to avoid triggering the application
+    # lifespan (`Base.metadata.create_all`) in a separate thread. This aligns 
+    # correctly with TestClient over an async engine.
+    yield TestClient(fastapi_app)
 
 @pytest.fixture(scope="session", autouse=True)
 async def cleanup_engine():
     yield
     await engine_test.dispose()
+    if os.path.exists("./test.db"):
+        try:
+            os.remove("./test.db")
+        except OSError:
+            pass
