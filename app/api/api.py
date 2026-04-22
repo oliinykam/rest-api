@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Query, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.database import get_db
 from app.schemas.schemas import BookRequest, BookResponse, BookStatus, SortOrder, PaginatedBooksResponse
 from app.services.services import BookService
-from uuid import UUID
+from pydantic_mongo import PydanticObjectId
 from typing import List, Optional
 
 router = APIRouter(prefix="/api", tags=["Books"])
@@ -23,7 +23,7 @@ async def get_all_books(
     status: Optional[BookStatus] = None,
     limit: int = Query(10, ge=1),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncIOMotorDatabase = Depends(get_db)
 ):
     service = BookService(db)
     items, total = await service.get_books(
@@ -53,7 +53,7 @@ async def get_all_books(
 
 
 @router.get("/books/{book_id}", response_model=BookResponse)
-async def get_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_book(book_id: PydanticObjectId, db: AsyncIOMotorDatabase = Depends(get_db)):
     service = BookService(db)
     book = await service.get_book(book_id)
     if book is None:
@@ -65,12 +65,12 @@ async def get_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/books", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
-async def create_book(book: BookRequest, db: AsyncSession = Depends(get_db)):
+async def create_book(book: BookRequest, db: AsyncIOMotorDatabase = Depends(get_db)):
     service = BookService(db)
     return await service.create_book(book)
 
 
 @router.delete("/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_book(book_id: PydanticObjectId, db: AsyncIOMotorDatabase = Depends(get_db)):
     service = BookService(db)
     return await service.delete_book(book_id)

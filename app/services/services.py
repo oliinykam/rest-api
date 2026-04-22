@@ -1,13 +1,13 @@
 from app.repository.repository import BookRepository
 from app.models.models import Book
 from app.schemas.schemas import BookRequest, BookStatus, SortOrder
-from uuid import UUID
+from pydantic_mongo import PydanticObjectId
 from typing import List, Optional, Tuple
-from sqlalchemy.ext.asyncio import AsyncSession
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 
 class BookService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncIOMotorDatabase):
         self.repo = BookRepository(db)
 
     async def get_books(
@@ -31,7 +31,7 @@ class BookService:
         total = await self.repo.count(author=author, status=status_val)
         return items, total
 
-    async def get_book(self, book_id: UUID) -> Optional[Book]:
+    async def get_book(self, book_id: PydanticObjectId) -> Optional[Book]:
         return await self.repo.get_by_id(book_id)
 
     async def create_book(self, book_in: BookRequest) -> Book:
@@ -44,5 +44,5 @@ class BookService:
         )
         return await self.repo.add(new_book)
 
-    async def delete_book(self, book_id: UUID) -> None:
+    async def delete_book(self, book_id: PydanticObjectId) -> None:
         await self.repo.delete(book_id)

@@ -18,8 +18,10 @@ class SortOrder(str, Enum):
     ASC = "asc"
     DESC = "desc"
 
+from pydantic_mongo import PydanticObjectId
+
 class BookResponse(BaseModel):
-    id: UUID
+    id: PydanticObjectId
     title: str
     author: str
     description: Optional[str]

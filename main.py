@@ -1,14 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.api import router as book_router
-from app.database import engine, Base
+from app.database import client
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import app.models.models
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     yield
+    client.close()
 
 app = FastAPI(title="Library API", lifespan=lifespan)
 
