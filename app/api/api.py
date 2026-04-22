@@ -19,17 +19,24 @@ async def get_all_books(
     sort_by: Optional[BookSortField] = None,
     order: SortOrder = SortOrder.ASC,
     author: Optional[str] = None,
-    status: Optional[BookStatus] = None,
+    book_status: Optional[BookStatus] = None,
     limit: int = Query(10, ge=1),
     cursor: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db)
 ):
     service = BookService(db)
-    items, next_cursor = await service.get_books(
-        sort_by=sort_by, order=order,
-        author=author, status=status,
-        limit=limit, cursor=cursor
-    )
+    
+    try:
+        items, next_cursor = await service.get_books(
+            sort_by=sort_by, order=order,
+            author=author, status=book_status,
+            limit=limit, cursor=cursor
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
     return PaginatedBooksResponse(
         limit=limit,

@@ -26,11 +26,15 @@ class BookService:
             data = json.loads(decoded)
             sort_val = data.get('sort_val')
             sort_by_val = sort_by.value if hasattr(sort_by, 'value') else sort_by
-            if sort_val is not None and sort_by_val == 'release_year':
-                sort_val = int(sort_val)
+            
+            if sort_val is not None and sort_by_val:
+                sort_col = getattr(Book, sort_by_val)
+                col_type = sort_col.type.python_type 
+                sort_val = col_type(sort_val)
+                
             return sort_val, UUID(data['id'])
-        except Exception:
-            return None, None
+        except Exception as e:
+            raise ValueError("Incorrect cursor") from e
 
     async def get_books(
         self,
