@@ -29,9 +29,11 @@ class BookResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class PaginatedBooksResponse(BaseModel):
-    total: int
     limit: int
-    offset: int
-    next_page: Optional[str] = None
-    prev_page: Optional[str] = None
+    next_cursor: Optional[str] = None
     items: List[BookResponse]
+
+class BookSortField(str, Enum):
+    DESCRIPTION = "description"
+    AUTHOR = "author"
+    RELEASE_YEAR = "release_year"

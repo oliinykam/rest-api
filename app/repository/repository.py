@@ -14,6 +14,8 @@ class BookRepository:
         status: Optional[str] = None,
         sort_by: Optional[str] = None,
         order: str = "asc",
+        cursor_sort_val: Optional[str] = None,
+        cursor_id: Optional[UUID] = None,
     ):
         query = select(Book)
 
@@ -22,16 +24,33 @@ class BookRepository:
         if status:
             query = query.where(Book.status == status)
 
+        is_desc = order.lower() == "desc"
+        sort_func = desc if is_desc else asc
+
+        if cursor_id:
+            if sort_by:
+                sort_col = getattr(Book, sort_by)
+                if is_desc:
+                    query = query.where(
+                        (sort_col < cursor_sort_val) |
+                        ((sort_col == cursor_sort_val) & (Book.id < cursor_id))
+                    )
+                else:
+                    query = query.where(
+                        (sort_col > cursor_sort_val) |
+                        ((sort_col == cursor_sort_val) & (Book.id > cursor_id))
+                    )
+            else:
+                if is_desc:
+                    query = query.where(Book.id < cursor_id)
+                else:
+                    query = query.where(Book.id > cursor_id)
+
         if sort_by:
-            sort_func = desc if order.lower() == "desc" else asc
-            if sort_by == "title":
-                query = query.order_by(sort_func(Book.title))
-            elif sort_by == "release_year":
-                query = query.order_by(sort_func(Book.release_year))
-            elif sort_by == "author":
-                query = query.order_by(sort_func(Book.author))
-            elif sort_by == "id":
-                query = query.order_by(sort_func(Book.id))
+            sort_col = getattr(Book, sort_by)
+            query = query.order_by(sort_func(sort_col), sort_func(Book.id))
+        else:
+            query = query.order_by(sort_func(Book.id))
 
         return query
 
@@ -55,10 +74,18 @@ class BookRepository:
         sort_by: Optional[str] = None,
         order: str = "asc",
         limit: int = 10,
-        offset: int = 0
+        cursor_sort_val: Optional[str] = None,
+        cursor_id: Optional[UUID] = None,
     ) -> List[Book]:
-        query = self._build_query(author=author, status=status, sort_by=sort_by, order=order)
-        query = query.limit(limit).offset(offset)
+        query = self._build_query(
+            author=author,
+            status=status,
+            sort_by=sort_by,
+            order=order,
+            cursor_sort_val=cursor_sort_val,
+            cursor_id=cursor_id
+        )
+        query = query.limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -72,8 +99,10 @@ class BookRepository:
         await self.db.refresh(book)
         return book
 
-    async def delete(self, book_id: UUID) -> None:
+    async def delete(self, book_id: UUID) -> bool:
         book = await self.get_by_id(book_id)
         if book:
             await self.db.delete(book)
             await self.db.commit()
+            return True
+        return False
