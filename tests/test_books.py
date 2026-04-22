@@ -57,12 +57,86 @@ def test_delete_book(client):
     assert response.status_code == 404
 
 def test_get_books_pagination(client):
-    response = client.get("/api/books?limit=2&offset=0")
+    response = client.get("/api/books?limit=2")
     assert response.status_code == 200
     data = response.json()
     
     assert data["limit"] == 2
-    assert data["offset"] == 0
     assert "items" in data
-    assert "total" in data
+    assert "next_cursor" in data
     assert isinstance(data["items"], list)
+
+    if data["next_cursor"]:
+        response2 = client.get(f"/api/books?limit=2&cursor={data['next_cursor']}")
+        assert response2.status_code == 200
+        data2 = response2.json()
+        assert data2["limit"] == 2
+        assert "items" in data2
+
+def test_get_books_pagination_no_duplicates(client):
+    for i in range(5):
+        new_book = {
+            "title": f"Book {i}",
+            "author": f"Author {i}",
+            "description": f"Desc {i}",
+            "status": "available",
+            "release_year": 2000 + i,
+        }
+        client.post("/api/books", json=new_book)
+
+    all_books = []
+    cursor = None
+    
+    while True:
+        url = "/api/books?limit=2"
+        if cursor:
+            url += f"&cursor={cursor}"
+            
+        res = client.get(url)
+        assert res.status_code == 200
+        data = res.json()
+        items = data["items"]
+        
+        all_books.extend(items)
+        
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+            
+    all_ids = [book["id"] for book in all_books]
+    unique_ids = set(all_ids)
+    
+    assert len(all_ids) == len(unique_ids), "Found duplicate books during pagination"
+    assert len(unique_ids) >= 6
+
+def test_pagination_custom_sort_uuid_check(client):
+    for i in range(3):
+        new_book = {
+            "title": "Identical Title",
+            "author": "Identical Author",
+            "description": "Desc",
+            "status": "available",
+            "release_year": 2020,
+        }
+        client.post("/api/books", json=new_book)
+        
+    all_books = []
+    cursor = None
+    
+    while True:
+        url = "/api/books?limit=2&sort_by=release_year"
+        if cursor:
+            url += f"&cursor={cursor}"
+            
+        res = client.get(url)
+        assert res.status_code == 200
+        data = res.json()
+        items = data["items"]
+        all_books.extend(items)
+        
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+            
+    all_ids = [b["id"] for b in all_books]
+    assert len(all_ids) == len(set(all_ids)), "Duplicate books found when using custom sorting"
