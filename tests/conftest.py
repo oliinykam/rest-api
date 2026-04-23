@@ -1,59 +1,49 @@
 import pytest
-from fastapi.testclient import TestClient
-from main import app as fastapi_app
-from app.database import get_db, Base
-from app.models.models import Book
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-import app.database
-import uuid
 import os
+from fastapi.testclient import TestClient
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient
 
-DATABASE_URL_TEST = "sqlite+aiosqlite:///./test.db"
-engine_test = create_async_engine(DATABASE_URL_TEST, connect_args={"check_same_thread": False})
-TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine_test, expire_on_commit=False)
+os.environ["DATABASE_NAME"] = "library_test"
 
-# Override engine in database module
-app.database.engine = engine_test
-app.database.AsyncSessionLocal = TestingSessionLocal
+from main import app as fastapi_app
+from app.database import get_db
+
+DATABASE_URL_TEST = os.getenv("DATABASE_URL_TEST", "mongodb://mongo_admin:password@localhost:27017")
+DATABASE_NAME_TEST = os.getenv("DATABASE_NAME", "library_test")
+
 
 async def override_get_db():
-    async with TestingSessionLocal() as session:
-        yield session
+    test_mongo_client = AsyncIOMotorClient(DATABASE_URL_TEST)
+    try:
+        yield test_mongo_client[DATABASE_NAME_TEST]
+    finally:
+        test_mongo_client.close()
 
 fastapi_app.dependency_overrides[get_db] = override_get_db
 
+
 @pytest.fixture(autouse=True)
-async def reset_db():
-    async with engine_test.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+def reset_db():
+    sync_client = MongoClient(DATABASE_URL_TEST)
+    db_test = sync_client[DATABASE_NAME_TEST]
     
-    async with TestingSessionLocal() as session:
-        seed_book = Book(
-            id=uuid.uuid4(),
-            title="Alice`s Adventures in Wonderland",
-            author="Lewis Carroll",
-            description="A novel about Alice",
-            status="available",
-            release_year=1865,
-        )
-        session.add(seed_book)
-        await session.commit()
+    db_test.books.drop()
+
+    seed_book = {
+        "title": "Alice's Adventures in Wonderland",
+        "author": "Lewis Carroll",
+        "description": "A novel about Alice",
+        "status": "available",
+        "release_year": 1865,
+    }
+    db_test.books.insert_one(seed_book)
+    
+    sync_client.close()
     yield
+
 
 @pytest.fixture
 def client():
-    # Testing without `with` context manager to avoid triggering the application
-    # lifespan (`Base.metadata.create_all`) in a separate thread. This aligns 
-    # correctly with TestClient over an async engine.
-    yield TestClient(fastapi_app)
-
-@pytest.fixture(scope="session", autouse=True)
-async def cleanup_engine():
-    yield
-    await engine_test.dispose()
-    if os.path.exists("./test.db"):
-        try:
-            os.remove("./test.db")
-        except OSError:
-            pass
+    with TestClient(fastapi_app) as test_client:
+        yield test_client

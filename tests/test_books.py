@@ -7,7 +7,7 @@ def test_get_books(client):
     data = response.json()
     assert "items" in data
     assert len(data["items"]) >= 1
-    assert data["items"][0]["title"] == "Alice`s Adventures in Wonderland"
+    assert data["items"][0]["title"] == "Alice's Adventures in Wonderland"
 
 def test_get_book(client):
     books_response = client.get("/api/books")
@@ -15,10 +15,12 @@ def test_get_book(client):
 
     response = client.get(f"/api/books/{book_id}")
     assert response.status_code == 200
-    assert response.json()["title"] == "Alice`s Adventures in Wonderland"
+    assert response.json()["title"] == "Alice's Adventures in Wonderland"
+
+from bson import ObjectId
 
 def test_get_book_not_found(client):
-    random_id = str(uuid.uuid4())
+    random_id = str(ObjectId())
     response = client.get(f"/api/books/{random_id}")
     assert response.status_code == 404
     assert response.json()["detail"] == "Book not found"
