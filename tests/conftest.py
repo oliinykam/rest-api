@@ -6,13 +6,13 @@ from app.models.models import Book
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 import app.database
 import uuid
+import uuid6
 import os
 
 DATABASE_URL_TEST = "sqlite+aiosqlite:///./test.db"
 engine_test = create_async_engine(DATABASE_URL_TEST, connect_args={"check_same_thread": False})
 TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine_test, expire_on_commit=False)
 
-# Override engine in database module
 app.database.engine = engine_test
 app.database.AsyncSessionLocal = TestingSessionLocal
 
@@ -30,7 +30,7 @@ async def reset_db():
     
     async with TestingSessionLocal() as session:
         seed_book = Book(
-            id=uuid.uuid4(),
+            id=uuid6.uuid7(),
             title="Alice`s Adventures in Wonderland",
             author="Lewis Carroll",
             description="A novel about Alice",
@@ -43,9 +43,6 @@ async def reset_db():
 
 @pytest.fixture
 def client():
-    # Testing without `with` context manager to avoid triggering the application
-    # lifespan (`Base.metadata.create_all`) in a separate thread. This aligns 
-    # correctly with TestClient over an async engine.
     yield TestClient(fastapi_app)
 
 @pytest.fixture(scope="session", autouse=True)

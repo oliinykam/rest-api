@@ -1,4 +1,5 @@
 import uuid
+import uuid6
 import pytest
 
 def test_get_books(client):
@@ -18,7 +19,7 @@ def test_get_book(client):
     assert response.json()["title"] == "Alice`s Adventures in Wonderland"
 
 def test_get_book_not_found(client):
-    random_id = str(uuid.uuid4())
+    random_id = str(uuid6.uuid7())
     response = client.get(f"/api/books/{random_id}")
     assert response.status_code == 404
     assert response.json()["detail"] == "Book not found"
