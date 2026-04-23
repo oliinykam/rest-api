@@ -9,7 +9,9 @@ DATABASE_URL = os.getenv(
     "mongodb://mongo_admin:password@localhost:27017"
 )
 
+DATABASE_NAME = os.getenv("DATABASE_NAME", "library")
+
 client = AsyncIOMotorClient(DATABASE_URL)
 
 async def get_db():
-    yield client.library
+    yield client[DATABASE_NAME]

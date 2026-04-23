@@ -61,5 +61,6 @@ class BookRepository:
         await self.collection.insert_one(book_dict)
         return book
 
-    async def delete(self, book_id: PydanticObjectId) -> None:
-        await self.collection.delete_one({"_id": PydanticObjectId(book_id)})
+    async def delete(self, book_id: PydanticObjectId) -> bool:
+        response = await self.collection.delete_one({"_id": PydanticObjectId(book_id)})
+        return response.deleted_count > 0

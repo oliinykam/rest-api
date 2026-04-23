@@ -44,5 +44,5 @@ class BookService:
         )
         return await self.repo.add(new_book)
 
-    async def delete_book(self, book_id: PydanticObjectId) -> None:
-        await self.repo.delete(book_id)
+    async def delete_book(self, book_id: PydanticObjectId) -> bool:
+        return await self.repo.delete(book_id)
