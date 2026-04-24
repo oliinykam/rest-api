@@ -3,14 +3,14 @@ from app.models.models import Book
 from app.schemas.schemas import BookRequest, BookStatus, SortOrder
 from pydantic_mongo import PydanticObjectId
 from typing import List, Optional, Tuple
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.database import Database
 
 
 class BookService:
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: Database):
         self.repo = BookRepository(db)
 
-    async def get_books(
+    def get_books(
         self,
         author: Optional[str] = None,
         status: Optional[BookStatus] = None,
@@ -20,21 +20,21 @@ class BookService:
         offset: int = 0
     ) -> Tuple[List[Book], int]:
         status_val = status.value if status else None
-        items = await self.repo.get_all(
+        items = self.repo.get_all(
             author=author,
             status=status_val,
             sort_by=sort_by,
-            order=order.value,
+            order=order.value if order else "asc",
             limit=limit,
             offset=offset
         )
-        total = await self.repo.count(author=author, status=status_val)
+        total = self.repo.count(author=author, status=status_val)
         return items, total
 
-    async def get_book(self, book_id: PydanticObjectId) -> Optional[Book]:
-        return await self.repo.get_by_id(book_id)
+    def get_book(self, book_id: PydanticObjectId) -> Optional[Book]:
+        return self.repo.get_by_id(book_id)
 
-    async def create_book(self, book_in: BookRequest) -> Book:
+    def create_book(self, book_in: BookRequest) -> Book:
         new_book = Book(
             title=book_in.title,
             author=book_in.author,
@@ -42,7 +42,7 @@ class BookService:
             status=book_in.status.value,
             description=book_in.description
         )
-        return await self.repo.add(new_book)
+        return self.repo.add(new_book)
 
-    async def delete_book(self, book_id: PydanticObjectId) -> bool:
-        return await self.repo.delete(book_id)
+    def delete_book(self, book_id: PydanticObjectId) -> bool:
+        return self.repo.delete(book_id)
