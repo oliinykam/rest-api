@@ -14,11 +14,32 @@ SWAGGER_TEMPLATE = {
             "type": "object",
             "required": ["title", "author", "release_year"],
             "properties": {
-                "title": {"type": "string", "minLength": 1},
-                "author": {"type": "string", "minLength": 1},
-                "release_year": {"type": "integer", "minimum": 1},
-                "status": {"type": "string", "enum": ["available", "issued"], "default": "available"},
-                "description": {"type": "string", "nullable": True},
+                "title": {
+                    "type": "string", 
+                    "minLength": 1, 
+                    "example": "Гаррі Поттер і філософський камінь"
+                },
+                "author": {
+                    "type": "string", 
+                    "minLength": 1, 
+                    "example": "Дж. К. Роулінг"
+                },
+                "release_year": {
+                    "type": "integer", 
+                    "minimum": 1, 
+                    "example": 1997
+                },
+                "status": {
+                    "type": "string", 
+                    "enum": ["available", "issued"], 
+                    "default": "available",
+                    "example": "available"
+                },
+                "description": {
+                    "type": "string", 
+                    "nullable": True,
+                    "example": "Перша книга про пригоди Гаррі Поттера"
+                },
             },
         },
         "BookResponse": {
