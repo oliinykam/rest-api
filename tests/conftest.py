@@ -1,35 +1,35 @@
-import pytest
 import os
-from fastapi.testclient import TestClient
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
+import sys
+import pytest
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 1. Встановлюємо тестові змінні середовища НА САМОМУ ПОЧАТКУ
 os.environ["DATABASE_NAME"] = "library_test"
+os.environ["DATABASE_URL"] = os.getenv("DATABASE_URL_TEST", "mongodb://mongo_admin:password@localhost:27017")
 
-from main import app as fastapi_app
-from app.database import get_db
-
-DATABASE_URL_TEST = os.getenv("DATABASE_URL_TEST", "mongodb://mongo_admin:password@localhost:27017")
-DATABASE_NAME_TEST = os.getenv("DATABASE_NAME", "library_test")
-
-
-async def override_get_db():
-    test_mongo_client = AsyncIOMotorClient(DATABASE_URL_TEST)
-    try:
-        yield test_mongo_client[DATABASE_NAME_TEST]
-    finally:
-        test_mongo_client.close()
-
-fastapi_app.dependency_overrides[get_db] = override_get_db
-
+@pytest.fixture
+def client_app():
+    """Створює тестовий клієнт Flask."""
+    # Відкладений імпорт: завантажуємо app лише в момент запуску тесту
+    from main import app
+    
+    app.config["TESTING"] = True
+    with app.test_client() as testing_client:
+        with app.app_context():
+            yield testing_client
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    sync_client = MongoClient(DATABASE_URL_TEST)
-    db_test = sync_client[DATABASE_NAME_TEST]
+    """Очищує БД перед кожним тестом і додає початкові дані."""
+    # Відкладений імпорт БД
+    from app.database import client
     
+    db_test = client[os.environ["DATABASE_NAME"]]
+    
+    # Видаляємо всі документи з колекції books
     db_test.books.drop()
 
+    # Додаємо базову книгу для тестів
     seed_book = {
         "title": "Alice's Adventures in Wonderland",
         "author": "Lewis Carroll",
@@ -39,11 +39,4 @@ def reset_db():
     }
     db_test.books.insert_one(seed_book)
     
-    sync_client.close()
     yield
-
-
-@pytest.fixture
-def client():
-    with TestClient(fastapi_app) as test_client:
-        yield test_client
