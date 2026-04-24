@@ -32,6 +32,27 @@ SWAGGER_TEMPLATE = {
                 "description": {"type": "string", "nullable": True},
             },
         },
+        "PaginatedBooksResponse": {
+            "type": "object",
+            "properties": {
+                "total": {"type": "integer", "description": "Total number of books matching the query"},
+                "limit": {"type": "integer", "description": "Maximum number of items returned per page"},
+                "offset": {"type": "integer", "description": "Number of items skipped"},
+                "next_page": {"type": "string", "nullable": True, "description": "URL to the next page, or null if none"},
+                "prev_page": {"type": "string", "nullable": True, "description": "URL to the previous page, or null if none"},
+                "items": {
+                    "type": "array",
+                    "items": {"$ref": "#/definitions/BookResponse"},
+                    "description": "List of books on the current page",
+                },
+            },
+        },
+        "ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "description": "Human-readable error message"},
+            },
+        },
     },
 }
 

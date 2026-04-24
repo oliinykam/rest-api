@@ -23,7 +23,13 @@ class HealthResource(Resource):
         ---
         responses:
           200:
-            description: OK
+            description: Service is running
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: ok
         """
         return {"status": "ok"}, 200
 
@@ -36,27 +42,41 @@ class BookListResource(Resource):
           - in: query
             name: sort_by
             type: string
+            description: Field to sort by (e.g. title, author, release_year)
           - in: query
             name: order
             type: string
+            enum: [asc, desc]
             default: asc
+            description: Sort direction
           - in: query
             name: author
             type: string
+            description: Filter by author name (case-insensitive partial match)
           - in: query
             name: status
             type: string
+            enum: [available, issued]
+            description: Filter by book status
           - in: query
             name: limit
             type: integer
             default: 10
+            description: Maximum number of books to return
           - in: query
             name: offset
             type: integer
             default: 0
+            description: Number of books to skip
         responses:
           200:
-            description: Paginated response
+            description: Paginated list of books
+            schema:
+              $ref: '#/definitions/PaginatedBooksResponse'
+          400:
+            description: Invalid query parameters
+            schema:
+              $ref: '#/definitions/ErrorResponse'
         """
         sort_by = request.args.get("sort_by")
         order_str = request.args.get("order", "asc")
@@ -126,13 +146,16 @@ class BookListResource(Resource):
             schema:
               $ref: '#/definitions/BookRequest'
             required: true
+            description: Book data to create
         responses:
           201:
-            description: Book created
+            description: Book created successfully
             schema:
               $ref: '#/definitions/BookResponse'
           422:
-            description: Validation error
+            description: Validation error — invalid or missing fields
+            schema:
+              $ref: '#/definitions/ErrorResponse'
         """
         data = request.get_json(force=True)
         try:
@@ -160,6 +183,7 @@ class BookResource(Resource):
             name: book_id
             type: string
             required: true
+            description: MongoDB ObjectId of the book
         responses:
           200:
             description: Book details
@@ -167,8 +191,12 @@ class BookResource(Resource):
               $ref: '#/definitions/BookResponse'
           400:
             description: Invalid ID format
+            schema:
+              $ref: '#/definitions/ErrorResponse'
           404:
             description: Book not found
+            schema:
+              $ref: '#/definitions/ErrorResponse'
         """
         try:
             pid = PydanticObjectId(book_id)
@@ -191,13 +219,18 @@ class BookResource(Resource):
             name: book_id
             type: string
             required: true
+            description: MongoDB ObjectId of the book to delete
         responses:
           204:
             description: Book deleted successfully
           400:
             description: Invalid ID format
+            schema:
+              $ref: '#/definitions/ErrorResponse'
           404:
             description: Book not found
+            schema:
+              $ref: '#/definitions/ErrorResponse'
         """
         try:
             pid = PydanticObjectId(book_id)
