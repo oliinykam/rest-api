@@ -53,7 +53,6 @@ def test_delete_book(client_app):
     response = client_app.delete(f"/api/books/{book_id}")
     assert response.status_code == 204
 
-    # Перевіряємо, що книгу дійсно видалено
     response = client_app.get(f"/api/books/{book_id}")
     assert response.status_code == 404
 
