@@ -1,6 +1,6 @@
-from app.models.models import Book
+from app.books.models import Book
 from uuid import UUID
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, asc, desc, func
 

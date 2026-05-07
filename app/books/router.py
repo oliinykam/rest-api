@@ -1,18 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Query, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.schemas.schemas import BookRequest, BookResponse, BookStatus, SortOrder, PaginatedBooksResponse
-from app.services.services import BookService
+
+from app.core.dependencies import get_current_user, get_db
+from app.core.utils import generate_pagination_links
+from app.auth.models import User
+from app.books.schemas import BookRequest, BookResponse, BookStatus, SortOrder, PaginatedBooksResponse
+from app.books.service import BookService
 from uuid import UUID
-from typing import List, Optional
+from typing import Optional
 
 router = APIRouter(prefix="/api", tags=["Books"])
-
-
-@router.get("/health")
-async def check_health():
-    return {"status": "ok"}
-
 
 @router.get("/books", response_model=PaginatedBooksResponse)
 async def get_all_books(
@@ -23,7 +20,8 @@ async def get_all_books(
     status: Optional[BookStatus] = None,
     limit: int = Query(10, ge=1),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     service = BookService(db)
     items, total = await service.get_books(
@@ -32,28 +30,23 @@ async def get_all_books(
         limit=limit, offset=offset
     )
 
-    def build_url(new_offset: int) -> str:
-        params = dict(request.query_params)
-        params["offset"] = str(new_offset)
-        params["limit"] = str(limit)
-        query_string = "&".join(f"{k}={v}" for k, v in params.items())
-        return str(request.base_url) + f"api/books?{query_string}"
-
-    next_page = build_url(offset + limit) if offset + limit < total else None
-    prev_page = build_url(offset - limit) if offset > 0 else None
+    pagination = generate_pagination_links(request, total, limit, offset)
 
     return PaginatedBooksResponse(
         total=total,
         limit=limit,
         offset=offset,
-        next_page=next_page,
-        prev_page=prev_page,
+        next_page=pagination["next_page"],
+        prev_page=pagination["prev_page"],
         items=items,
     )
 
-
 @router.get("/books/{book_id}", response_model=BookResponse)
-async def get_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_book(
+    book_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     service = BookService(db)
     book = await service.get_book(book_id)
     if book is None:
@@ -63,14 +56,20 @@ async def get_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
         )
     return book
 
-
 @router.post("/books", response_model=BookResponse, status_code=status.HTTP_201_CREATED)
-async def create_book(book: BookRequest, db: AsyncSession = Depends(get_db)):
+async def create_book(
+    book: BookRequest,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     service = BookService(db)
     return await service.create_book(book)
 
-
 @router.delete("/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_book(book_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_book(
+    book_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     service = BookService(db)
     return await service.delete_book(book_id)

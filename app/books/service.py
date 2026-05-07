@@ -1,10 +1,9 @@
-from app.repository.repository import BookRepository
-from app.models.models import Book
-from app.schemas.schemas import BookRequest, BookStatus, SortOrder
+from app.books.repository import BookRepository
+from app.books.models import Book
+from app.books.schemas import BookRequest, BookStatus, SortOrder
 from uuid import UUID
 from typing import List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 class BookService:
     def __init__(self, db: AsyncSession):
