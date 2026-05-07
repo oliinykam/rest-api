@@ -1,33 +1,40 @@
+import os
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
+
+import app.core.database
+from app.core.database import Base
+from app.core.dependencies import get_db
+from app.books.models import Book
 from main import app as fastapi_app
-from app.database import get_db, Base
-from app.models.models import Book
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-import app.database
-import uuid
-import os
 
 DATABASE_URL_TEST = "sqlite+aiosqlite:///./test.db"
 engine_test = create_async_engine(DATABASE_URL_TEST, connect_args={"check_same_thread": False})
-TestingSessionLocal = async_sessionmaker(autocommit=False, autoflush=False, bind=engine_test, expire_on_commit=False)
+TestingSessionLocal = async_sessionmaker(
+    autocommit=False, autoflush=False, bind=engine_test, expire_on_commit=False
+)
 
-# Override engine in database module
-app.database.engine = engine_test
-app.database.AsyncSessionLocal = TestingSessionLocal
+app.core.database.engine = engine_test
+app.core.database.AsyncSessionLocal = TestingSessionLocal
+
 
 async def override_get_db():
     async with TestingSessionLocal() as session:
         yield session
 
+
 fastapi_app.dependency_overrides[get_db] = override_get_db
+
 
 @pytest.fixture(autouse=True)
 async def reset_db():
     async with engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-    
+
     async with TestingSessionLocal() as session:
         seed_book = Book(
             id=uuid.uuid4(),
@@ -41,12 +48,26 @@ async def reset_db():
         await session.commit()
     yield
 
+
 @pytest.fixture
 def client():
-    # Testing without `with` context manager to avoid triggering the application
-    # lifespan (`Base.metadata.create_all`) in a separate thread. This aligns 
-    # correctly with TestClient over an async engine.
     yield TestClient(fastapi_app)
+
+
+@pytest.fixture
+def auth_headers(client):
+    client.post(
+        "/api/auth/register",
+        json={"username": "testuser", "password": "testpass123"},
+    )
+    resp = client.post(
+        "/api/auth/login",
+        data={"username": "testuser", "password": "testpass123"},
+    )
+    assert resp.status_code == 200, f"Login failed: {resp.text}"
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
 
 @pytest.fixture(scope="session", autouse=True)
 async def cleanup_engine():
