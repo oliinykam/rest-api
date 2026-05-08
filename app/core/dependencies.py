@@ -1,10 +1,18 @@
+from typing import Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
-import uuid
+from redis.asyncio import Redis
 
 from app.core.database import async_session
 from app.core.security import verify_token_type, oauth2_scheme
+from app.core.rate_limiter import RedisRateLimiter
+from app.database.redis import get_redis
+
+limiter = RedisRateLimiter()
+
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/login", auto_error=False)
 
 async def get_db():
     async with async_session() as session:
@@ -24,6 +32,37 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+async def rate_limit(
+    request: Request, 
+    token: Optional[str] = Depends(oauth2_scheme_optional), 
+    redis: Redis = Depends(get_redis)
+):
+    user_id = None
+    
+    if token:
+        try:
+            user_id = verify_token_type(token, "access")
+        except Exception as e:
+            import logging
+            logging.error(f"Rate Limiter Token Error: {e}")
+            pass 
+            
+    if user_id:
+        key = f"ratelimit:user:{user_id}"
+        limit = 10
+    else:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        host = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "unknown")
+        key = f"ratelimit:ip:{host}"
+        limit = 2
+        
+    allowed = await limiter.check_allowance(key, limit, redis_client=redis)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too Many Requests"
+        )
 
 async def get_auth_service(db: AsyncSession = Depends(get_db)):
     from app.auth.repository import UserRepository

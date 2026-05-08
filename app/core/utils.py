@@ -1,6 +1,5 @@
 import urllib.parse
 from fastapi import Request
-from typing import Optional
 
 def generate_pagination_links(request: Request, total: int, limit: int, offset: int) -> dict:
     base_url = str(request.url.replace(query=""))

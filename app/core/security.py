@@ -3,7 +3,7 @@ import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 import bcrypt

@@ -9,7 +9,9 @@ from app.books.service import BookService
 from uuid import UUID
 from typing import Optional
 
-router = APIRouter(prefix="/api", tags=["Books"])
+from app.core.dependencies import rate_limit
+
+router = APIRouter(prefix="/api", tags=["Books"], dependencies=[Depends(rate_limit)])
 
 @router.get("/books", response_model=PaginatedBooksResponse)
 async def get_all_books(
@@ -21,7 +23,6 @@ async def get_all_books(
     limit: int = Query(10, ge=1),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     service = BookService(db)
     items, total = await service.get_books(
@@ -45,7 +46,6 @@ async def get_all_books(
 async def get_book(
     book_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
 ):
     service = BookService(db)
     book = await service.get_book(book_id)

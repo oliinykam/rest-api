@@ -12,6 +12,7 @@ dependencies = [
     "PyJWT>=2.8.0",
     "bcrypt>=4.0.0",
     "python-multipart>=0.0.9",
+    "redis>=5.0.0",
 ]
 
 [dependency-groups]
@@ -28,3 +29,4 @@ members = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "function"
+pythonpath = ["."]
