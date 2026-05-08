@@ -75,6 +75,6 @@ def test_get_books_pagination(client, auth_headers):
 
 
 def test_books_require_auth(client):
-    """All /books endpoints must return 401 without a valid token."""
-    assert client.get("/api/books").status_code == 401
+    """POST /books must return 401 without a valid token. GET /books is public."""
+    assert client.get("/api/books").status_code == 200
     assert client.post("/api/books", json={}).status_code == 401

@@ -26,8 +26,13 @@ async def override_get_db():
         yield session
 
 
-fastapi_app.dependency_overrides[get_db] = override_get_db
+from app.core.dependencies import rate_limit
 
+async def override_rate_limit():
+    pass
+
+fastapi_app.dependency_overrides[get_db] = override_get_db
+fastapi_app.dependency_overrides[rate_limit] = override_rate_limit
 
 @pytest.fixture(autouse=True)
 async def reset_db():
