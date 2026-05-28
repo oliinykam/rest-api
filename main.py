@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 from app.api.api import router as book_router
 from app.database import engine, Base
 
@@ -11,6 +12,10 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Library API", lifespan=lifespan)
+
+@app.get("/", include_in_schema=False)
+async def redirect_to_docs():
+    return RedirectResponse(url="/docs")
 
 app.include_router(book_router)
 
