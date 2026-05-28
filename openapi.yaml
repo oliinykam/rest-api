@@ -1,0 +1,479 @@
+openapi: "3.0.3"
+
+info:
+  title: Library API
+  description: REST API for managing a library — books catalogue and user authentication.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://localhost:4010
+    description: Prism mock server
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Auth
+    description: Registration, login, token refresh and logout
+  - name: Books
+    description: Books CRUD with pagination, filtering and sorting
+
+paths:
+
+  /api/health:
+    get:
+      operationId: checkHealth
+      summary: Health check
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /api/auth/register:
+    post:
+      operationId: register
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreate"
+            example:
+              username: john_doe
+              password: secret123
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+              example:
+                id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                username: john_doe
+        "409":
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Username already taken
+
+  /api/auth/login:
+    post:
+      operationId: login
+      summary: Authenticate and receive tokens
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: john_doe
+                password:
+                  type: string
+                  format: password
+                  example: secret123
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJleHAiOjE3MDAwMDAwMDB9.signature"
+                refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTcwMTAwMDAwMH0.signature"
+                token_type: bearer
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Invalid username or password
+
+  /api/auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Exchange refresh token for a new token pair
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            example:
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTcwMTAwMDAwMH0.signature"
+      responses:
+        "200":
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJleHAiOjE3MDAwMDAwMDl9.new_signature"
+                refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTcwMTAwMDAwOX0.new_signature"
+                token_type: bearer
+        "401":
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Refresh token not found or already used
+
+  /api/auth/logout:
+    post:
+      operationId: logout
+      summary: Invalidate a refresh token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+            example:
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZmE4NWY2NC01NzE3LTQ1NjItYjNmYy0yYzk2M2Y2NmFmYTYiLCJ0eXBlIjoicmVmcmVzaCIsImV4cCI6MTcwMTAwMDAwMH0.signature"
+      responses:
+        "204":
+          description: Logged out — token invalidated
+
+
+  /api/books:
+    get:
+      operationId: getAllBooks
+      summary: List books with pagination and optional filtering/sorting
+      tags: [Books]
+      parameters:
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [title, author, release_year]
+          description: Field to sort by
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+        - name: author
+          in: query
+          schema:
+            type: string
+          description: Filter by author name (partial match)
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/BookStatus"
+          description: Filter by book status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of books
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedBooksResponse"
+              example:
+                total: 2
+                limit: 10
+                offset: 0
+                next_page: null
+                prev_page: null
+                items:
+                  - id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    title: "The Pragmatic Programmer"
+                    author: "Andrew Hunt"
+                    description: "A classic software engineering book."
+                    status: available
+                    release_year: 1999
+                  - id: "9b2e5a1c-3d4f-4e6b-a7c8-1f2e3d4a5b6c"
+                    title: "Clean Code"
+                    author: "Robert C. Martin"
+                    description: "A handbook of agile software craftsmanship."
+                    status: issued
+                    release_year: 2008
+
+    post:
+      operationId: createBook
+      summary: Add a new book (requires authentication)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookRequest"
+            example:
+              title: "Design Patterns"
+              author: "Gang of Four"
+              description: "Elements of Reusable Object-Oriented Software."
+              status: available
+              release_year: 1994
+      responses:
+        "201":
+          description: Book created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookResponse"
+              example:
+                id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                title: "Design Patterns"
+                author: "Gang of Four"
+                description: "Elements of Reusable Object-Oriented Software."
+                status: available
+                release_year: 1994
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Not authenticated
+
+  /api/books/{book_id}:
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+
+    get:
+      operationId: getBook
+      summary: Get a single book by ID
+      tags: [Books]
+      responses:
+        "200":
+          description: Book found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookResponse"
+              example:
+                id: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                title: "The Pragmatic Programmer"
+                author: "Andrew Hunt"
+                description: "A classic software engineering book."
+                status: available
+                release_year: 1999
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Book not found
+
+    delete:
+      operationId: deleteBook
+      summary: Delete a book by ID (requires authentication)
+      tags: [Books]
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Book deleted successfully
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Not authenticated
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: Book not found
+
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    BookStatus:
+      type: string
+      enum: [available, issued]
+
+    BookRequest:
+      type: object
+      required: [title, author, release_year]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: "The Pragmatic Programmer"
+        author:
+          type: string
+          minLength: 1
+          example: "Andrew Hunt"
+        description:
+          type: string
+          nullable: true
+          example: "A classic software engineering book."
+        status:
+          $ref: "#/components/schemas/BookStatus"
+        release_year:
+          type: integer
+          minimum: 1
+          example: 1999
+
+    BookResponse:
+      type: object
+      required: [id, title, author, status, release_year]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        title:
+          type: string
+          example: "The Pragmatic Programmer"
+        author:
+          type: string
+          example: "Andrew Hunt"
+        description:
+          type: string
+          nullable: true
+          example: "A classic software engineering book."
+        status:
+          $ref: "#/components/schemas/BookStatus"
+        release_year:
+          type: integer
+          example: 1999
+
+    PaginatedBooksResponse:
+      type: object
+      required: [total, limit, offset, items]
+      properties:
+        total:
+          type: integer
+          example: 2
+        limit:
+          type: integer
+          example: 10
+        offset:
+          type: integer
+          example: 0
+        next_page:
+          type: string
+          nullable: true
+          example: null
+        prev_page:
+          type: string
+          nullable: true
+          example: null
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookResponse"
+
+    UserCreate:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          example: john_doe
+        password:
+          type: string
+          minLength: 6
+          format: password
+          example: secret123
+
+    UserResponse:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        username:
+          type: string
+          example: john_doe
+
+    TokenResponse:
+      type: object
+      required: [access_token, refresh_token, token_type]
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          example: bearer
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    HTTPError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: "Error message"
